@@ -265,7 +265,7 @@ plt.show()
 
 
     
-![png](assets/output_20_0.png)
+![png](analysis/assets/output_20_0.png)
     
 
 
@@ -420,7 +420,7 @@ plt.show()
 
 
     
-![png](assets/output_35_0.png)
+![png](analysis/assets/output_35_0.png)
     
 
 
@@ -457,7 +457,7 @@ plt.savefig('Multiclass ROC.png',dpi=300)
 
 
     
-![png](assets/output_37_0.png)
+![png](analysis/assets/output_37_0.png)
     
 
 
@@ -494,7 +494,7 @@ plt.savefig('Multiclass PRCurve.png',dpi=300)
 
 
     
-![png](assets/output_39_0.png)
+![png](analysis/assets/output_39_0.png)
     
 
 
