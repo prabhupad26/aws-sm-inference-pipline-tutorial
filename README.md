@@ -252,7 +252,7 @@ plt.show()
 
 
     
-![png](analysis/assets/output_20_0.png)
+![png](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/analysis/assets/output_20_0.png)
     
 
 
@@ -407,7 +407,7 @@ plt.show()
 
 
     
-![png](analysis/assets/output_35_0.png)
+![png](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/analysis/assets/output_35_0.png)
     
 
 
@@ -444,7 +444,7 @@ plt.savefig('Multiclass ROC.png',dpi=300)
 
 
     
-![png](analysis/assets/output_37_0.png)
+![png](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/analysis/assets/output_37_0.png)
     
 
 
@@ -481,7 +481,7 @@ plt.savefig('Multiclass PRCurve.png',dpi=300)
 
 
     
-![png](analysis/assets/output_39_0.png)
+![png](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/analysis/assets/output_39_0.png)
     
 
 
