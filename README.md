@@ -6,7 +6,7 @@ This tutorial has the below objectives :
 2. Create an inference pipeline in AWS Sagemaker and deploy it on sklearn [docker container](https://docs.aws.amazon.com/sagemaker/latest/dg/pre-built-docker-containers-scikit-learn-spark.html), ([source code folder](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/tree/master/newsgroup_classifier)).
 
 
-#### Building the model
+### Building the model
 
 > Prerequisites: 
 >  1. Create a python venv, conda env with jupyter notebook. 
@@ -486,3 +486,152 @@ plt.savefig('Multiclass PRCurve.png',dpi=300)
 
 
 * From the PR curve it looks there are chances of class imbalance for those categories which has lower Area Under the Curve, so the model could be a bit biased towards the other categories which has greater AUC. This could be avoided by including more data for those categories with less AUC.
+
+
+
+### Deploying the model
+So till now we have got the training data preprocessed and we know the model with which we have to train with i.e. the MultiNomial NaiveBayes model. We will now prepare some driver scripts which will make use of the python AWS SDK - [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html).
+
+> __Prerequisites__:
+>  1. Amazon AWS account.
+>  2. Generate and save the Access key and secret access key from AWS IAM for accessing AWS services from python boto3 library.
+>  3. Set the python environment variables - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION (by dafault it is : us-east-1)
+
+Before executing the script you will need to create a role with these two policies attached - 1. AmazonS3FullAccess, 2. AmazonSageMakerFullAccess :
+1. Log in to AWS Console and navigate to IAM.
+2. Click on ` Create new role `.
+   ![image](https://user-images.githubusercontent.com/11462012/122663665-f8e76000-d1b9-11eb-9d38-c0d9dda48653.png)
+3. Select use case as SageMaker and then Click on `Next: Permissions`
+   ![image](https://user-images.githubusercontent.com/11462012/122663719-321fd000-d1ba-11eb-8a68-b6f6109f4c2d.png)
+4. Search and select these two roles : 1. AmazonS3FullAccess, 2. AmazonSageMakerFullAccess
+5. Click on `Next: Tags `, then give the role some name and review and save it.
+Now the roles has been created and you can update the same in `exec_train_job_aws_sm.py` file line # 7. 
+
+* Deploy the preprocessed csv files generated above to S3 by running `newsgroup_classifier/upload_train_data_s3.py` script, the [script](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/newsgroup_classifier/upload_train_data_s3.py) is pretty much straight forward you just need to create a s3 bucket and call upload function to upload the file you have in you local to the s3 bucket.
+* We will now prepare a training [script](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/newsgroup_classifier/exec_train_job_aws_sm.py) which will train the model using the sklearn container in AWS Sagemaker:
+  1. Create a parser object to collect the environment variables that are in the default AWS Scikit-learn Docker container:
+      ```
+       parser = argparse.ArgumentParser()
+       parser.add_argument('--output-data-dir', type=str, default=os.environ.get('SM_OUTPUT_DATA_DIR'))
+       parser.add_argument('--model-dir', type=str, default=os.environ.get('SM_MODEL_DIR'))
+       parser.add_argument('--train', type=str, default=os.environ.get('SM_CHANNEL_TRAIN'))
+       parser.add_argument('--source_dir', type=str, default=os.environ.get('SM_CHANNEL_TEST'))
+       args = parser.parse_args()
+      ```
+      You can check out the [documentation](https://sagemaker.readthedocs.io/en/stable/frameworks/sklearn/using_sklearn.html#prepare-a-scikit-learn-training-script) for description of these environment variables
+  2. Below is the directory structure when the runtime environment is created in Sagemaker:\
+     /opt/ml/
+            input/
+                 config/
+                 data/
+            output/
+            failure/
+  3. Read the csv files:
+     ```
+     train_df = pd.read_csv(os.path.join(args.train,'train.csv'),
+                                    index_col=0, engine="python")
+     ```
+  4. Convert the raw text data to its tf-idf vector form :
+     ```
+       vectorizer = TfidfVectorizer()
+       vectors = vectorizer.fit_transform(train_df.data.values)
+       train_X = vectors
+       train_Y = train_df.label.values
+     ```
+     > We will need this vector format so we will save it in `output` folder after training is completed
+  5. Fitting the model :
+     ```
+        model = MultinomialNB(alpha=.01)
+        model.fit(train_X, train_Y)
+     ```
+  6. Saving the model:
+     ```
+        joblib.dump(model, os.path.join(args.model_dir, "model.joblib"))
+     ```
+  7. Saving the vectorizer using pickle:
+     ```
+        pickle.dump(vectorizer.vocabulary_, open("/opt/ml/model/tf_idf_vocab.pkl","wb"))
+     ```
+  8. We will also need a label mapping containing the mapping of numeric labels vs the textual labels so we will read it from the csv file and save it using pickle:
+     ```
+        label_dict = {}
+        for i in range(20):
+           label_dict[i] = train_df.label_names[train_df.label == i].values[0]
+        with open("/opt/ml/model/label_json.json", 'w') as file:
+           json.dump(label_dict, file) 
+     ```
+  9. Now we are done with the training script preparation, but still we will need to define few functions for loading, processing the output which will be required while testing out model.
+
+```
+def model_fn(model_dir):
+    """
+    This function gets invoked by sagemaker to load the saved model
+    :param model_dir: Path where the model was saved
+    :return: sklearn.naive_bayes.MultinomialNB
+    """
+    print(f"Fetching and loading the model from {model_dir}")
+    model = joblib.load(os.path.join(model_dir, "model.joblib"))
+    return model
+    
+    
+def input_fn(request_body, request_content_type):
+    """
+    This function gets invoked by sagemaker to format the input,
+    in this case the input string (request_body) get converted into
+    its tf-idf vector form
+    :param request_body: Input while invoking the endpoint
+    :param request_content_type: request content type
+    :return: scipy.sparse.csr.csr_matrix
+    """
+    print(f"Processing the input format")
+    if request_content_type == 'text/csv':
+        print(f"Loading a tf-idf vocab from pickle file")
+        vectorizer = TfidfVectorizer(vocabulary=pickle.load(
+            open('/opt/ml/model/tf_idf_vocab.pkl',"rb")))
+        vector = vectorizer.fit_transform([request_body])
+        print("Vectorizer created")
+        return vector
+    else:
+        raise ValueError("This model only supports text/csv input")
+        
+    def predict_fn(input_data, model):
+    """
+    This function gets invoked by sagemaker to get the prediction output
+    using the trained model
+    :param input_data: output of input_fn function
+    :param model: model returned by model_fn function
+    :return: numpy.int64 or numpy.int32
+    """
+    print("Predicting output")
+    sample_output = model.predict(input_data)
+    return sample_output
+
+
+def output_fn(prediction, content_type):
+    """
+    This function gets invoked by sagemaker to take the output of
+    predict_fn and convert it to as per the mapping obtained from the json file.
+    This json file is create during the training job execution.
+    :param prediction: output from predict_fn function
+    :param content_type: content type
+    :return: str
+    """
+    print(f"Output predicted is {prediction}, decoding the label")
+    with open("/opt/ml/model/label_json.json", "r") as file:
+        label_dict = json.load(file)
+    output = label_dict[str(prediction[0])]
+    return output
+
+```
+
+Now we are all set to execute the [driver script](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/newsgroup_classifier/exec_train_job_aws_sm.py) for training 
+
+On completion of this script an endpoint will get created :
+* On success you will see the below in console:
+  ![image](https://user-images.githubusercontent.com/11462012/122664652-5383ba80-d1c0-11eb-90d0-e67130adf0fd.png)
+* During training you will see this job getting created in AWS SM :
+  ![image](https://user-images.githubusercontent.com/11462012/122664576-ecfe9c80-d1bf-11eb-9997-68aec5a88c2f.png)
+* Once the job is completed a new end point will get created here :
+  ![image](https://user-images.githubusercontent.com/11462012/122664598-0dc6f200-d1c0-11eb-9218-c6a4812f155a.png)
+
+Once the end point is create now you can test you model by runining the `exec_endpoint_aws_sm.py` script, you can validate the output with the expected results.
