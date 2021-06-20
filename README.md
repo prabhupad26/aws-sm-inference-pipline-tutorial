@@ -628,7 +628,10 @@ Now we are all set to execute the [driver script](https://github.com/prabhupad26
 
 On completion of this script an endpoint will get created :
 * On success you will see the below in console:
-  ![image](https://user-images.githubusercontent.com/11462012/122664652-5383ba80-d1c0-11eb-90d0-e67130adf0fd.png)
+  ![image](https://user-images.githubusercontent.com/11462012/122664875-92fed680-d1c1-11eb-902a-32f2b51a1981.png) 
+
+> Copy this end point name and update it in the variable `endpoint_name` at line # 23 in [`exec_endpoint_aws_sm.py`](https://github.com/prabhupad26/aws-sm-inference-pipline-tutorial/blob/master/newsgroup_classifier/exec_endpoint_aws_sm.py) script then run it.
+ 
 * During training you will see this job getting created in AWS SM :
   ![image](https://user-images.githubusercontent.com/11462012/122664576-ecfe9c80-d1bf-11eb-9997-68aec5a88c2f.png)
 * Once the job is completed a new end point will get created here :
