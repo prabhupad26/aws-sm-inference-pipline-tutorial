@@ -637,4 +637,4 @@ On completion of this script an endpoint will get created :
 * Once the job is completed a new end point will get created here :
   ![image](https://user-images.githubusercontent.com/11462012/122664598-0dc6f200-d1c0-11eb-9218-c6a4812f155a.png)
 
-Once the end point is create now you can test you model by runining the `exec_endpoint_aws_sm.py` script, you can validate the output with the expected results.
+Once the end point is create now you can test you model by running the `exec_endpoint_aws_sm.py` script, you can validate the output with the expected results.
